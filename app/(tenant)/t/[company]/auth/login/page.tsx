@@ -50,9 +50,14 @@ export default function LoginPage({ params }: { params: { company: string } }) {
 				body: JSON.stringify({ companyLoginId: params.company.toLowerCase(), code, displayName, department: 'Sales' }),
 				credentials: 'include',
 			});
-			if (!bindRes.ok) throw new Error(await bindRes.text());
+			if (!bindRes.ok) {
+				console.error('[client] bind failed', bindRes.status, await bindRes.text());
+				throw new Error('Bind failed');
+			}
 			console.log('[client] bind ok');
-			const { role } = await bindRes.json();
+			const hdr = bindRes.headers.get('x-role');
+			const { role: jsonRole } = await bindRes.json().catch(() => ({ role: undefined }));
+			const role = hdr || jsonRole || 'employee';
 
 			// 4) Persist light client session and route
 			writeSession({ role, email, company: params.company.toLowerCase(), extra: {} });
