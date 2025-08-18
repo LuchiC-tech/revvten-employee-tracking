@@ -25,6 +25,15 @@ export default function VerifyPage({ params }: { params: { company: string } }) 
 			const supabase = createSupabaseBrowser();
 			const { error } = await supabase.auth.verifyOtp({ email, token, type: 'email' as any });
 			if (error) throw error;
+			// Bridge tokens to server cookies so SSR sees the session
+			const { data: { session } } = await supabase.auth.getSession();
+			if (!session?.access_token || !session?.refresh_token) throw new Error('Missing session tokens');
+			await fetch('/api/auth/sync', {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({ access_token: session.access_token, refresh_token: session.refresh_token }),
+				credentials: 'include',
+			});
 			// Bind profile with provided code; role derived by RPC
 			const res = await fetch(`/api/auth/bind-with-code`, {
 				method: 'POST',
@@ -33,6 +42,7 @@ export default function VerifyPage({ params }: { params: { company: string } }) 
 			});
 			if (!res.ok) throw new Error(await res.text());
 			const { role } = await res.json();
+			await fetch('/api/auth/ping', { cache: 'no-store', credentials: 'include' }).catch(() => {});
 			router.replace(role === 'manager' ? `/t/${params.company}/manager/overview` : `/t/${params.company}/employee/home`);
 		} catch (e: any) {
 			setMsg(e?.message || 'Verification failed');
@@ -50,6 +60,16 @@ export default function VerifyPage({ params }: { params: { company: string } }) 
 				if (data.user) {
 					setMsg('Session detected. Finalizing your signup…');
 					setLoading(true);
+					// Bridge tokens to server cookies for SSR guards
+					const { data: { session } } = await supabase.auth.getSession();
+					if (session?.access_token && session?.refresh_token) {
+						await fetch('/api/auth/sync', {
+							method: 'POST',
+							headers: { 'Content-Type': 'application/json' },
+							body: JSON.stringify({ access_token: session.access_token, refresh_token: session.refresh_token }),
+							credentials: 'include',
+						});
+					}
 					const res = await fetch(`/api/auth/bind-with-code`, {
 						method: 'POST',
 						headers: { 'Content-Type': 'application/json' },
@@ -57,6 +77,7 @@ export default function VerifyPage({ params }: { params: { company: string } }) 
 					});
 					if (!res.ok) throw new Error(await res.text());
 					const { role } = await res.json();
+					await fetch('/api/auth/ping', { cache: 'no-store', credentials: 'include' }).catch(() => {});
 					router.replace(role === 'manager' ? `/t/${params.company}/manager/overview` : `/t/${params.company}/employee/home`);
 				}
 			} catch (e: any) {

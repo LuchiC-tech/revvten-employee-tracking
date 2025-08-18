@@ -1,50 +1,52 @@
 import { ReactNode } from 'react';
-import { redirect } from 'next/navigation';
+import { redirect, notFound } from 'next/navigation';
 import { createSupabaseServer } from '@/lib/supabase/server';
 import { fetchCompanyBySlug } from '@/lib/tenant/fetchCompany';
-import { EmployeeTabs } from '@/components/employee/EmployeeTabs';
-import { UnknownCompany } from '@/components/guards/UnknownCompany';
 
-export default async function EmployeeLayout({
-  children,
+export default async function Layout({
   params,
-}: { children: ReactNode; params: { company: string } }) {
-  const company = await fetchCompanyBySlug(params.company);
-  if (!company) {
-    return (
-      <div className="container mx-auto p-6">
-        <UnknownCompany companyLoginId={params.company.toLowerCase()} />
-      </div>
-    );
-  }
-
+  children,
+}: {
+  params: { company: string };
+  children: ReactNode;
+}) {
   const supabase = createSupabaseServer();
-  const { data: { user } } = await supabase.auth.getUser();
 
+  // 1) must have a session
+  const { data: { user } } = await supabase.auth.getUser();
+  const slug = String(params.company || '').toLowerCase();
   if (!user) {
-    console.warn('[guard] no user on employee layout, redirecting to login');
-    redirect(`/t/${company.company_login_id}/auth/login`);
+    redirect(`/t/${slug}/auth/login`);
   }
 
-  const { data: cu } = await supabase
-    .from('revvten.company_users')
-    .select('company_id')
-    .eq('user_id', user.id)
+  // 2) resolve company once (RPC-backed helper)
+  const company = await fetchCompanyBySlug(slug);
+  if (!company?.id) {
+    notFound(); // prevents “Unknown company” loops
+  }
+
+  // 3) membership check in the *revvten* schema (not public)
+  const { data: membership, error } = await (supabase as any)
+    .schema('revvten')
+    .from('company_users')
+    .select('id')
     .eq('company_id', company.id)
+    .eq('user_id', user.id)
     .maybeSingle();
 
-  const bound = !!cu?.company_id;
-  if (!bound) {
-    console.warn('[guard] user not bound to tenant, redirect to login');
-    redirect(`/t/${company.company_login_id}/auth/login`);
+  // Optional: temporary trace to catch mis-wires
+  console.log('[guard]', {
+    slug,
+    userId: user.id,
+    companyId: company.id,
+    membershipId: membership?.id ?? null,
+    error,
+  });
+
+  if (!membership) {
+    redirect(`/t/${slug}/auth/login`);
   }
 
-  return (
-    <div className="container mx-auto p-6">
-      <EmployeeTabs company={company.company_login_id} />
-      {children}
-    </div>
-  );
+  return <>{children}</>;
 }
-
 

@@ -1,54 +1,52 @@
-import { ReactNode } from "react";
-import { redirect } from "next/navigation";
-import { createSupabaseServer } from "@/lib/supabase/server";
-import { ManagerTabs } from "@/components/manager/ManagerTabs";
-import { UnknownCompany } from "@/components/guards/UnknownCompany";
-import { fetchCompanyBySlug } from "@/lib/tenant/fetchCompany";
+import { ReactNode } from 'react';
+import { redirect, notFound } from 'next/navigation';
+import { createSupabaseServer } from '@/lib/supabase/server';
+import { fetchCompanyBySlug } from '@/lib/tenant/fetchCompany';
 
-type CompanyLite = { id: string; name: string; company_login_id: string };
+export default async function Layout({
+  params,
+  children,
+}: {
+  params: { company: string };
+  children: ReactNode;
+}) {
+  const supabase = createSupabaseServer();
 
-export default async function ManagerLayout({ children, params }: { children: ReactNode; params: { company: string } }) {
-	const supabase = createSupabaseServer();
+  // 1) must have a session
+  const { data: { user } } = await supabase.auth.getUser();
+  const slug = String(params.company || '').toLowerCase();
+  if (!user) {
+    redirect(`/t/${slug}/auth/login`);
+  }
 
-	const {
-		data: { user },
-	} = await supabase.auth.getUser();
+  // 2) resolve company once (RPC-backed helper)
+  const company = await fetchCompanyBySlug(slug);
+  if (!company?.id) {
+    notFound(); // prevents “Unknown company” loops
+  }
 
-	const company = await fetchCompanyBySlug(params.company);
-	if (!company) {
-		return (
-			<div className="container mx-auto p-6">
-				<UnknownCompany companyLoginId={params.company} />
-			</div>
-		);
-	}
+  // 3) membership check in the *revvten* schema (not public)
+  const { data: membership, error } = await (supabase as any)
+    .schema('revvten')
+    .from('company_users')
+    .select('id')
+    .eq('company_id', company.id)
+    .eq('user_id', user.id)
+    .maybeSingle();
 
-	if (!user) {
-		redirect(`/t/${company.company_login_id}/auth/login`);
-	}
+  // Optional: temporary trace to catch mis-wires
+  console.log('[guard]', {
+    slug,
+    userId: user.id,
+    companyId: company.id,
+    membershipId: membership?.id ?? null,
+    error,
+  });
 
-	const { data: cu } = await supabase
-		.from("revvten.company_users")
-		.select("company_id")
-		.eq("user_id", user.id)
-		.eq("company_id", company.id)
-		.maybeSingle();
+  if (!membership) {
+    redirect(`/t/${slug}/auth/login`);
+  }
 
-	const isBoundToThisCompany = !!cu?.company_id;
-
-	if (!isBoundToThisCompany) {
-		redirect(`/t/${company.company_login_id}/auth/login`);
-	}
-
-	// Note: do not hard-gate on profile.role here. Membership grants access; views can self-protect.
-
-	return (
-		<div className="container mx-auto p-6">
-			<h1 className="mb-4 text-3xl font-bold">Manager</h1>
-			<ManagerTabs company={params.company} />
-			{children}
-		</div>
-	);
+  return <>{children}</>;
 }
-
 
