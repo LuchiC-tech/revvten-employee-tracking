@@ -8,6 +8,11 @@ export default async function EmployeeHomePage({ params }: { params: { company: 
 		data: { user },
 	} = await supabase.auth.getUser();
 
+	// Debug ping for SSR user visibility
+	try {
+		await fetch(`${process.env.NEXT_PUBLIC_SITE_URL ?? 'http://localhost:3002'}/api/auth/ping`, { cache: 'no-store' });
+	} catch {}
+
 	let profile: any = null;
 	if (user && company) {
 		const { data } = await supabase

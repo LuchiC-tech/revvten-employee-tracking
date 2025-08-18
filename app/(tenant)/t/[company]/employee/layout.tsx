@@ -22,7 +22,7 @@ export default async function EmployeeLayout({
   const { data: { user } } = await supabase.auth.getUser();
 
   if (!user) {
-    // Force no-cache on auth-guarded pages to avoid stale SSR sending user back to login
+    console.warn('[guard] no user on employee layout, redirecting to login');
     redirect(`/t/${company.company_login_id}/auth/login`);
   }
 
@@ -30,10 +30,12 @@ export default async function EmployeeLayout({
     .from('revvten.profiles')
     .select('company_id, email, department, role')
     .eq('user_id', user.id)
+    .eq('company_id', company.id)
     .maybeSingle();
 
   const bound = profile?.company_id === company.id;
   if (!bound) {
+    console.warn('[guard] user not bound to tenant, redirect to login');
     redirect(`/t/${company.company_login_id}/auth/login`);
   }
 

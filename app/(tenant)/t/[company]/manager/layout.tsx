@@ -31,6 +31,7 @@ export default async function ManagerLayout({ children, params }: { children: Re
 		.from("revvten.profiles")
 		.select("user_id, company_id, email, role, department")
 		.eq("user_id", user.id)
+		.eq("company_id", company.id)
 		.maybeSingle();
 
 	const isBoundToThisCompany = profile?.company_id === company.id;
