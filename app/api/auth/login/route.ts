@@ -6,7 +6,7 @@ export async function POST(req: Request) {
   const { email, password, companyLoginId, code } = await req.json()
 
   // Create a response up-front so Supabase can attach cookies directly to it
-  const response = NextResponse.next()
+  const response = new NextResponse(null, { status: 200 })
   const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,

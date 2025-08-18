@@ -30,7 +30,10 @@ export default function LoginPage({ params }: { params: { company: string } }) {
 				headers: { 'Content-Type': 'application/json' },
 				body: JSON.stringify({ email, password, companyLoginId: params.company.toLowerCase(), code }),
 			});
-			if (!res.ok) throw new Error(await res.text());
+			if (!res.ok) {
+				const msg = await res.text();
+				throw new Error(msg || 'Login failed');
+			}
 			const role = res.headers.get('x-role') || 'employee';
 			writeSession({ role: role as any, email, company: params.company.toLowerCase(), extra: {} });
 			router.replace(role === 'manager' ? `/t/${params.company}/manager/overview` : `/t/${params.company}/employee/home`);
