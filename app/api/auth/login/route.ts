@@ -2,6 +2,9 @@ import { NextResponse } from 'next/server'
 import { cookies } from 'next/headers'
 import { createServerClient } from '@supabase/ssr'
 
+export const dynamic = 'force-dynamic'
+export const revalidate = 0
+
 export async function POST(req: Request) {
   const { email, password, companyLoginId, code } = await req.json()
 
@@ -20,12 +23,18 @@ export async function POST(req: Request) {
   )
 
   const { error } = await supabase.auth.signInWithPassword({ email, password })
-  if (error) return NextResponse.json({ ok: false, error: error.message }, { status: 400 })
+  if (error) {
+    console.error('[login] signInWithPassword error:', error.message)
+    return NextResponse.json({ ok: false, error: error.message }, { status: 400, headers: { 'Cache-Control': 'no-store' } })
+  }
 
   // Resolve company and preserve existing department if present
   const { data: cdata } = await supabase.rpc('resolve_company_by_login', { _login: (companyLoginId || '').toLowerCase() })
   const company = Array.isArray(cdata) ? (cdata as any)[0] : (cdata as any)
-  if (!company?.id) return NextResponse.json({ ok: false, error: 'Unknown tenant' }, { status: 400 })
+  if (!company?.id) {
+    console.error('[login] unknown tenant for', companyLoginId)
+    return NextResponse.json({ ok: false, error: 'Unknown tenant' }, { status: 400, headers: { 'Cache-Control': 'no-store' } })
+  }
 
   let department = 'Sales'
   try {
@@ -49,12 +58,16 @@ export async function POST(req: Request) {
     _display_name: displayName,
     _department: department,
   } as any)
-  if (bindErr) return NextResponse.json({ ok: false, error: bindErr.message }, { status: 400 })
+  if (bindErr) {
+    console.error('[login] bind_profile_with_code error:', bindErr.message)
+    return NextResponse.json({ ok: false, error: bindErr.message }, { status: 400, headers: { 'Cache-Control': 'no-store' } })
+  }
 
   const role = (bindData as any)?.role || 'employee'
   // Force a quick session validation to ensure cookies are persisted
   await supabase.auth.getUser()
   response.headers.set('x-role', role)
+  response.headers.set('Cache-Control', 'no-store')
   return response
 }
 

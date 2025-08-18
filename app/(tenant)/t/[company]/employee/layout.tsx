@@ -22,6 +22,7 @@ export default async function EmployeeLayout({
   const { data: { user } } = await supabase.auth.getUser();
 
   if (!user) {
+    // Force no-cache on auth-guarded pages to avoid stale SSR sending user back to login
     redirect(`/t/${company.company_login_id}/auth/login`);
   }
 
