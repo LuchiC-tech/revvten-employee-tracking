@@ -26,14 +26,14 @@ export default async function EmployeeLayout({
     redirect(`/t/${company.company_login_id}/auth/login`);
   }
 
-  const { data: profile } = await supabase
-    .from('revvten.profiles')
-    .select('company_id, email, department, role')
+  const { data: cu } = await supabase
+    .from('revvten.company_users')
+    .select('company_id')
     .eq('user_id', user.id)
     .eq('company_id', company.id)
     .maybeSingle();
 
-  const bound = profile?.company_id === company.id;
+  const bound = !!cu?.company_id;
   if (!bound) {
     console.warn('[guard] user not bound to tenant, redirect to login');
     redirect(`/t/${company.company_login_id}/auth/login`);

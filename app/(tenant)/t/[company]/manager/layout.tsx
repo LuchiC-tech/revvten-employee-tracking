@@ -27,14 +27,14 @@ export default async function ManagerLayout({ children, params }: { children: Re
 		redirect(`/t/${company.company_login_id}/auth/login`);
 	}
 
-	const { data: profile } = await supabase
-		.from("revvten.profiles")
-		.select("user_id, company_id, email, role, department")
+	const { data: cu } = await supabase
+		.from("revvten.company_users")
+		.select("company_id")
 		.eq("user_id", user.id)
 		.eq("company_id", company.id)
 		.maybeSingle();
 
-	const isBoundToThisCompany = profile?.company_id === company.id;
+	const isBoundToThisCompany = !!cu?.company_id;
 	const isManager = profile?.role === "manager" || profile?.role === "revv_admin";
 
 	if (!isBoundToThisCompany) {
