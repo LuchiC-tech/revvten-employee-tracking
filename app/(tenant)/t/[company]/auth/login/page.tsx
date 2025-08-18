@@ -38,6 +38,7 @@ export default function LoginPage({ params }: { params: { company: string } }) {
 				method: 'POST',
 				headers: { 'Content-Type': 'application/json' },
 				body: JSON.stringify({ access_token: session.access_token, refresh_token: session.refresh_token }),
+				credentials: 'include',
 			});
 			console.log('[client] sync status', syncRes.status);
 
@@ -47,6 +48,7 @@ export default function LoginPage({ params }: { params: { company: string } }) {
 				method: 'POST',
 				headers: { 'Content-Type': 'application/json' },
 				body: JSON.stringify({ companyLoginId: params.company.toLowerCase(), code, displayName, department: 'Sales' }),
+				credentials: 'include',
 			});
 			if (!bindRes.ok) throw new Error(await bindRes.text());
 			console.log('[client] bind ok');

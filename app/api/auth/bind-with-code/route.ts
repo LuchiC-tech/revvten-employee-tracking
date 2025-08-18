@@ -1,5 +1,7 @@
 import { NextResponse } from 'next/server'
 import { createSupabaseServer } from '@/lib/supabase/server'
+export const dynamic = 'force-dynamic'
+export const revalidate = 0
 
 export async function POST(req: Request) {
 	const { companyLoginId, code, displayName, department } = await req.json()
