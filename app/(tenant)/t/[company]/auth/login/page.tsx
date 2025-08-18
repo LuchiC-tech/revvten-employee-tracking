@@ -24,19 +24,22 @@ export default function LoginPage({ params }: { params: { company: string } }) {
 		try {
 			setLoading(true);
 			setMsg("");
+			console.log('[client] login start', { email, company: params.company });
 			// 1) Client-side sign in so browser holds tokens
 			const supabase = createSupabaseBrowser();
 			const { error: signInErr } = await supabase.auth.signInWithPassword({ email, password });
 			if (signInErr) throw signInErr;
+			console.log('[client] signIn ok');
 
 			// 2) Bridge tokens to server cookies for SSR guards
 			const { data: { session } } = await supabase.auth.getSession();
 			if (!session?.access_token || !session?.refresh_token) throw new Error('Missing session tokens');
-			await fetch('/api/auth/sync', {
+			const syncRes = await fetch('/api/auth/sync', {
 				method: 'POST',
 				headers: { 'Content-Type': 'application/json' },
 				body: JSON.stringify({ access_token: session.access_token, refresh_token: session.refresh_token }),
 			});
+			console.log('[client] sync status', syncRes.status);
 
 			// 3) Bind profile with code on server (derives role)
 			const displayName = (email.split('@')[0] || 'User');
@@ -46,12 +49,16 @@ export default function LoginPage({ params }: { params: { company: string } }) {
 				body: JSON.stringify({ companyLoginId: params.company.toLowerCase(), code, displayName, department: 'Sales' }),
 			});
 			if (!bindRes.ok) throw new Error(await bindRes.text());
+			console.log('[client] bind ok');
 			const { role } = await bindRes.json();
 
 			// 4) Persist light client session and route
 			writeSession({ role, email, company: params.company.toLowerCase(), extra: {} });
-			router.replace(role === 'manager' ? `/t/${params.company}/manager/overview` : `/t/${params.company}/employee/home`);
+			const dest = role === 'manager' ? `/t/${params.company}/manager/overview` : `/t/${params.company}/employee/home`;
+			console.log('[client] redirect', dest);
+			router.replace(dest);
 		} catch (e: any) {
+			console.error('[client] login error', e?.message);
 			setMsg(e?.message || 'Login failed');
 		} finally {
 			setLoading(false);

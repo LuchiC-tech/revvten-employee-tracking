@@ -7,6 +7,7 @@ export const revalidate = 0
 
 export async function POST(req: Request) {
   const { email, password, companyLoginId, code } = await req.json()
+  if (process.env.NODE_ENV !== 'production') console.log('[login] start', { email, companyLoginId })
 
   // Create a response up-front so Supabase can attach cookies directly to it
   const response = new NextResponse(null, { status: 200 })
@@ -27,6 +28,7 @@ export async function POST(req: Request) {
     console.error('[login] signInWithPassword error:', error.message)
     return NextResponse.json({ ok: false, error: error.message }, { status: 400, headers: { 'Cache-Control': 'no-store' } })
   }
+  if (process.env.NODE_ENV !== 'production') console.log('[login] signIn ok')
 
   // Resolve company and preserve existing department if present
   const { data: cdata } = await supabase.rpc('resolve_company_by_login', { _login: (companyLoginId || '').toLowerCase() })
@@ -35,6 +37,7 @@ export async function POST(req: Request) {
     console.error('[login] unknown tenant for', companyLoginId)
     return NextResponse.json({ ok: false, error: 'Unknown tenant' }, { status: 400, headers: { 'Cache-Control': 'no-store' } })
   }
+  if (process.env.NODE_ENV !== 'production') console.log('[login] tenant ok', { companyId: company.id })
 
   let department = 'Sales'
   try {
@@ -50,6 +53,7 @@ export async function POST(req: Request) {
       department = existing?.department || 'Sales'
     }
   } catch {}
+  if (process.env.NODE_ENV !== 'production') console.log('[login] department', { department })
 
   const displayName = (email?.split?.('@')[0] || 'User')
   const { data: bindData, error: bindErr } = await supabase.rpc('bind_profile_with_code', {
@@ -62,12 +66,14 @@ export async function POST(req: Request) {
     console.error('[login] bind_profile_with_code error:', bindErr.message)
     return NextResponse.json({ ok: false, error: bindErr.message }, { status: 400, headers: { 'Cache-Control': 'no-store' } })
   }
+  if (process.env.NODE_ENV !== 'production') console.log('[login] bind ok', { role: (bindData as any)?.role })
 
   const role = (bindData as any)?.role || 'employee'
   // Force a quick session validation to ensure cookies are persisted
   await supabase.auth.getUser()
   response.headers.set('x-role', role)
   response.headers.set('Cache-Control', 'no-store')
+  if (process.env.NODE_ENV !== 'production') console.log('[login] done', { role })
   return response
 }
 
