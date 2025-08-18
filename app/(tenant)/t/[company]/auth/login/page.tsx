@@ -63,6 +63,8 @@ export default function LoginPage({ params }: { params: { company: string } }) {
 			writeSession({ role, email, company: params.company.toLowerCase(), extra: {} });
 			const dest = role === 'manager' ? `/t/${params.company}/manager/overview` : `/t/${params.company}/employee/home`;
 			console.log('[client] redirect', dest);
+			// Belt & suspenders: hit ping so SSR sees cookies before navigation
+			await fetch('/api/auth/ping', { cache: 'no-store', credentials: 'include' }).catch(() => {});
 			router.replace(dest);
 		} catch (e: any) {
 			console.error('[client] login error', e?.message);

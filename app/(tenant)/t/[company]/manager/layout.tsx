@@ -36,24 +36,11 @@ export default async function ManagerLayout({ children, params }: { children: Re
 
 	const isBoundToThisCompany = !!cu?.company_id;
 
-	let isManager = false;
-	if (isBoundToThisCompany) {
-		const { data: prof } = await supabase
-			.from("revvten.profiles")
-			.select("role")
-			.eq("user_id", user.id)
-			.eq("company_id", company.id)
-			.maybeSingle();
-		isManager = prof?.role === "manager" || prof?.role === "revv_admin";
-	}
-
 	if (!isBoundToThisCompany) {
 		redirect(`/t/${company.company_login_id}/auth/login`);
 	}
 
-	if (!isManager) {
-		redirect(`/t/${company.company_login_id}/auth/login?role=manager`);
-	}
+	// Note: do not hard-gate on profile.role here. Membership grants access; views can self-protect.
 
 	return (
 		<div className="container mx-auto p-6">
