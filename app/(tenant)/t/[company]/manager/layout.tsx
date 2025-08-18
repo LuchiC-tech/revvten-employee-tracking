@@ -35,7 +35,17 @@ export default async function ManagerLayout({ children, params }: { children: Re
 		.maybeSingle();
 
 	const isBoundToThisCompany = !!cu?.company_id;
-	const isManager = profile?.role === "manager" || profile?.role === "revv_admin";
+
+	let isManager = false;
+	if (isBoundToThisCompany) {
+		const { data: prof } = await supabase
+			.from("revvten.profiles")
+			.select("role")
+			.eq("user_id", user.id)
+			.eq("company_id", company.id)
+			.maybeSingle();
+		isManager = prof?.role === "manager" || prof?.role === "revv_admin";
+	}
 
 	if (!isBoundToThisCompany) {
 		redirect(`/t/${company.company_login_id}/auth/login`);
