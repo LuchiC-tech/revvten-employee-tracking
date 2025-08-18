@@ -24,30 +24,32 @@ export default function LoginPage({ params }: { params: { company: string } }) {
 		try {
 			setLoading(true);
 			setMsg("");
-			// Perform auth and bind on the server so cookies are correctly set for SSR
-			const res = await fetch('/api/auth/login', {
+			// 1) Client-side sign in so browser holds tokens
+			const supabase = createSupabaseBrowser();
+			const { error: signInErr } = await supabase.auth.signInWithPassword({ email, password });
+			if (signInErr) throw signInErr;
+
+			// 2) Bridge tokens to server cookies for SSR guards
+			const { data: { session } } = await supabase.auth.getSession();
+			if (!session?.access_token || !session?.refresh_token) throw new Error('Missing session tokens');
+			await fetch('/api/auth/sync', {
 				method: 'POST',
 				headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify({ email, password, companyLoginId: params.company.toLowerCase(), code }),
+				body: JSON.stringify({ access_token: session.access_token, refresh_token: session.refresh_token }),
 			});
-			if (!res.ok) {
-				const msg = await res.text();
-				throw new Error(msg || 'Login failed');
-			}
-			const role = res.headers.get('x-role') || 'employee';
-			// Bridge tokens to server cookies in case Supabase cookie-based auth is disabled/misconfigured
-			try {
-				const supabase = createSupabaseBrowser();
-				const { data: { session } } = await supabase.auth.getSession();
-				if (session?.access_token && session?.refresh_token) {
-					await fetch('/api/auth/sync', {
-						method: 'POST',
-						headers: { 'Content-Type': 'application/json' },
-						body: JSON.stringify({ access_token: session.access_token, refresh_token: session.refresh_token })
-					});
-				}
-			} catch {}
-			writeSession({ role: role as any, email, company: params.company.toLowerCase(), extra: {} });
+
+			// 3) Bind profile with code on server (derives role)
+			const displayName = (email.split('@')[0] || 'User');
+			const bindRes = await fetch(`/api/auth/bind-with-code`, {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({ companyLoginId: params.company.toLowerCase(), code, displayName, department: 'Sales' }),
+			});
+			if (!bindRes.ok) throw new Error(await bindRes.text());
+			const { role } = await bindRes.json();
+
+			// 4) Persist light client session and route
+			writeSession({ role, email, company: params.company.toLowerCase(), extra: {} });
 			router.replace(role === 'manager' ? `/t/${params.company}/manager/overview` : `/t/${params.company}/employee/home`);
 		} catch (e: any) {
 			setMsg(e?.message || 'Login failed');
