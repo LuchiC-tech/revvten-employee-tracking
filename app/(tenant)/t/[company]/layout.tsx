@@ -22,10 +22,10 @@ export default async function TenantLayout({ children, params }: { children: Rea
  	}
 	const brand = getBrandForSlug(params.company);
 	return (
-		<TenantProvider companyParam={params.company}>
+		<TenantProvider companyParam={company.company_login_id}>
 			<div className="min-h-screen">
 				<header className="flex items-center justify-between border-b p-4" style={{ borderColor: brand.primaryColor }}>
-					<Link href={`/t/${params.company}`} className="text-xl font-bold" style={{ color: brand.primaryColor }}>
+					<Link href={`/t/${company.company_login_id}`} className="text-xl font-bold" style={{ color: brand.primaryColor }}>
 						{brand.logoText}
 					</Link>
 					<div className="flex items-center gap-3">
@@ -34,7 +34,7 @@ export default async function TenantLayout({ children, params }: { children: Rea
 					</div>
 				</header>
 				<main className="p-6">{children}</main>
-				<SessionDebug company={params.company} />
+				<SessionDebug company={company.company_login_id} />
 			</div>
 		</TenantProvider>
 	);

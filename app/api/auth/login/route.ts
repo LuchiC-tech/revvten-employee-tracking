@@ -5,27 +5,27 @@ import { createServerClient } from '@supabase/ssr'
 export async function POST(req: Request) {
   const { email, password, companyLoginId, code } = await req.json()
 
-  // Prepare a response that will capture Set-Cookie from Supabase auth
-  const initial = new NextResponse('', { headers: { 'Content-Type': 'application/json' } })
+  // Create the final response up-front so Supabase can set cookies directly on it
+  const res = NextResponse.json({ ok: false }, { status: 200 })
   const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
     {
       cookies: {
         get(name: string) { return cookies().get(name)?.value },
-        set(name: string, value: string, options: any) { initial.cookies.set({ name, value, ...options }) },
-        remove(name: string, options: any) { initial.cookies.set({ name, value: '', ...options }) },
+        set(name: string, value: string, options: any) { res.cookies.set({ name, value, ...options }) },
+        remove(name: string, options: any) { res.cookies.set({ name, value: '', ...options }) },
       }
     }
   )
 
   const { error } = await supabase.auth.signInWithPassword({ email, password })
-  if (error) return new NextResponse(error.message, { status: 400 })
+  if (error) return NextResponse.json({ ok: false, error: error.message }, { status: 400 })
 
   // Resolve company and preserve existing department if present
   const { data: cdata } = await supabase.rpc('resolve_company_by_login', { _login: (companyLoginId || '').toLowerCase() })
   const company = Array.isArray(cdata) ? (cdata as any)[0] : (cdata as any)
-  if (!company?.id) return new NextResponse('Unknown tenant', { status: 400 })
+  if (!company?.id) return NextResponse.json({ ok: false, error: 'Unknown tenant' }, { status: 400 })
 
   let department = 'Sales'
   try {
@@ -49,13 +49,10 @@ export async function POST(req: Request) {
     _display_name: displayName,
     _department: department,
   } as any)
-  if (bindErr) return new NextResponse(bindErr.message, { status: 400 })
+  if (bindErr) return NextResponse.json({ ok: false, error: bindErr.message }, { status: 400 })
 
   const payload = { ok: true, role: (bindData as any)?.role || 'employee' }
-  const final = NextResponse.json(payload)
-  // propagate cookies captured on initial
-  initial.cookies.getAll().forEach((c) => final.cookies.set(c))
-  return final
+  return NextResponse.json(payload, { headers: res.headers })
 }
 
 
