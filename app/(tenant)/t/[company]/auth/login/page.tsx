@@ -35,6 +35,18 @@ export default function LoginPage({ params }: { params: { company: string } }) {
 				throw new Error(msg || 'Login failed');
 			}
 			const role = res.headers.get('x-role') || 'employee';
+			// Bridge tokens to server cookies in case Supabase cookie-based auth is disabled/misconfigured
+			try {
+				const supabase = createSupabaseBrowser();
+				const { data: { session } } = await supabase.auth.getSession();
+				if (session?.access_token && session?.refresh_token) {
+					await fetch('/api/auth/sync', {
+						method: 'POST',
+						headers: { 'Content-Type': 'application/json' },
+						body: JSON.stringify({ access_token: session.access_token, refresh_token: session.refresh_token })
+					});
+				}
+			} catch {}
 			writeSession({ role: role as any, email, company: params.company.toLowerCase(), extra: {} });
 			router.replace(role === 'manager' ? `/t/${params.company}/manager/overview` : `/t/${params.company}/employee/home`);
 		} catch (e: any) {
