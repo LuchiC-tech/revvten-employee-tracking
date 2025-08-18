@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { createSupabaseBrowser } from "@/lib/supabase/browser";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
+import { writeSession } from "@/lib/session";
 
 export default function LoginPage({ params }: { params: { company: string } }) {
 	const router = useRouter();
@@ -31,6 +32,7 @@ export default function LoginPage({ params }: { params: { company: string } }) {
 			});
 			if (!res.ok) throw new Error(await res.text());
 			const { role } = await res.json();
+			writeSession({ role, email, company: params.company.toLowerCase(), extra: {} });
 			router.replace(role === 'manager' ? `/t/${params.company}/manager/overview` : `/t/${params.company}/employee/home`);
 		} catch (e: any) {
 			setMsg(e?.message || 'Login failed');

@@ -9,8 +9,10 @@ export function SessionDebug({ company }: { company?: string | null }) {
 	useEffect(() => {
 		setMounted(true);
 		setInfo(readSession());
-		const interval = setInterval(() => setInfo(readSession()), 1000);
-		return () => clearInterval(interval);
+		const listener = () => setInfo(readSession());
+		const interval = setInterval(listener, 1000);
+		window.addEventListener('storage', listener);
+		return () => { clearInterval(interval); window.removeEventListener('storage', listener); };
 	}, []);
 
 	if (process.env.NODE_ENV !== "development" || !mounted) return null;
