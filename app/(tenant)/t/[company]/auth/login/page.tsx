@@ -31,8 +31,8 @@ export default function LoginPage({ params }: { params: { company: string } }) {
 				body: JSON.stringify({ email, password, companyLoginId: params.company.toLowerCase(), code }),
 			});
 			if (!res.ok) throw new Error(await res.text());
-			const { role } = await res.json();
-			writeSession({ role, email, company: params.company.toLowerCase(), extra: {} });
+			const role = res.headers.get('x-role') || 'employee';
+			writeSession({ role: role as any, email, company: params.company.toLowerCase(), extra: {} });
 			router.replace(role === 'manager' ? `/t/${params.company}/manager/overview` : `/t/${params.company}/employee/home`);
 		} catch (e: any) {
 			setMsg(e?.message || 'Login failed');

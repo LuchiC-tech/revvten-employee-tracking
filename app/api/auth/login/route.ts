@@ -5,16 +5,16 @@ import { createServerClient } from '@supabase/ssr'
 export async function POST(req: Request) {
   const { email, password, companyLoginId, code } = await req.json()
 
-  // Create the final response up-front so Supabase can set cookies directly on it
-  const res = NextResponse.json({ ok: false }, { status: 200 })
+  // Create a response up-front so Supabase can attach cookies directly to it
+  const response = NextResponse.next()
   const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
     {
       cookies: {
         get(name: string) { return cookies().get(name)?.value },
-        set(name: string, value: string, options: any) { res.cookies.set({ name, value, ...options }) },
-        remove(name: string, options: any) { res.cookies.set({ name, value: '', ...options }) },
+        set(name: string, value: string, options: any) { response.cookies.set({ name, value, ...options }) },
+        remove(name: string, options: any) { response.cookies.set({ name, value: '', ...options }) },
       }
     }
   )
@@ -51,8 +51,11 @@ export async function POST(req: Request) {
   } as any)
   if (bindErr) return NextResponse.json({ ok: false, error: bindErr.message }, { status: 400 })
 
-  const payload = { ok: true, role: (bindData as any)?.role || 'employee' }
-  return NextResponse.json(payload, { headers: res.headers })
+  const role = (bindData as any)?.role || 'employee'
+  // Force a quick session validation to ensure cookies are persisted
+  await supabase.auth.getUser()
+  response.headers.set('x-role', role)
+  return response
 }
 
 
