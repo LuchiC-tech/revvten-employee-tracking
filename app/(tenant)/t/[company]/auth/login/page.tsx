@@ -26,24 +26,38 @@ export default function LoginPage({ params }: { params: { company: string } }) {
 			const supabase = createSupabaseBrowser();
 			const { error } = await supabase.auth.signInWithPassword({ email, password });
 			if (error) throw error;
-			// Validate requested role for this session
-			const role = (search.get("role") || "employee").toLowerCase();
-			const res = await fetch(`/api/auth/validate-code`, {
-				method: "POST",
-				headers: { "Content-Type": "application/json" },
-				body: JSON.stringify({ companyLoginId: params.company.toLowerCase(), code, role }),
-			});
-			if (!res.ok) throw new Error(await res.text());
-			// Ensure a bound profile (covers first login after import)
-			await fetch(`/api/auth/ensure-bind`, {
-				method: 'POST',
-				headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify({ companyLoginId: params.company.toLowerCase(), code }),
-			});
-			// Route to correct dashboard for this session role
-			router.replace(role === "manager" ? `/t/${params.company}/manager/overview` : `/t/${params.company}/employee/home`);
+
+			// Resolve company and existing department to preserve it when rebinding
+			const { data: companyData } = await supabase.rpc('resolve_company_by_login', { _login: params.company.toLowerCase() });
+			const company: any = Array.isArray(companyData) ? (companyData as any)[0] : (companyData as any);
+			if (!company?.id) throw new Error('Unknown tenant');
+
+			const { data: userRes } = await supabase.auth.getUser();
+			const userId = userRes?.user?.id;
+			if (!userId) throw new Error('Session not established');
+
+			const { data: existing } = await supabase
+				.from('revvten.profiles')
+				.select('department')
+				.eq('user_id', userId)
+				.eq('company_id', company.id)
+				.maybeSingle();
+			const departmentSafe = existing?.department || 'Sales';
+			const displayName = (email.split('@')[0] || 'User');
+
+			// Single authoritative bind: validates code and sets role
+			const { data: bindData, error: bindErr } = await supabase.rpc('bind_profile_with_code', {
+				_company_login_id: params.company.toLowerCase(),
+				_plain_code: code,
+				_display_name: displayName,
+				_department: departmentSafe,
+			} as any);
+			if (bindErr) throw bindErr;
+			const role = (bindData as any)?.role || 'employee';
+
+			router.replace(role === 'manager' ? `/t/${params.company}/manager/overview` : `/t/${params.company}/employee/home`);
 		} catch (e: any) {
-			setMsg(e?.message || "Login failed");
+			setMsg(e?.message || 'Login failed');
 		} finally {
 			setLoading(false);
 		}
