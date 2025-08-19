@@ -23,11 +23,19 @@ export default async function EmployeeLessonsPage({ params }: { params: { compan
 			<h1 className="text-3xl font-bold">Lessons</h1>
 			<div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
 				{lessons.map((l: any) => (
-					<Link key={l.id} href={`/t/${slug}/employee/lessons/${l.id}`} className="rounded-xl border p-4 hover:bg-muted">
+					<div key={l.id} className="rounded-xl border p-4">
 						<div className="text-sm text-muted-foreground">{l.company_id ? "Company lesson" : "Global lesson"}</div>
 						<div className="mt-1 text-base font-semibold">{l.title}</div>
-						<div className="mt-2 text-xs text-muted-foreground">Open to start</div>
-					</Link>
+						<div className="mt-2 text-xs text-muted-foreground">Includes instructions and PDF</div>
+						<div className="mt-3 flex items-center gap-2">
+							<Link href={`/t/${slug}/employee/lessons/${l.id}`} className="inline-flex items-center rounded-md border px-3 py-1.5 text-sm hover:bg-accent">
+								Open
+							</Link>
+							<Link href={`/t/${slug}/employee/lessons/${l.id}`} className="inline-flex items-center rounded-md bg-blue-600 px-3 py-1.5 text-sm text-white hover:bg-blue-700">
+								Certify my skills
+							</Link>
+						</div>
+					</div>
 				))}
 				{lessons.length === 0 ? (
 					<div className="rounded-xl border p-6 text-sm text-muted-foreground">No active lessons yet.</div>
