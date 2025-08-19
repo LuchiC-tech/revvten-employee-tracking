@@ -1,5 +1,6 @@
 import { TenantProvider } from "@/app/providers";
 import Link from "next/link";
+import { TenantBrand } from "@/components/TenantBrand";
 import { ThemeSwitcher } from "@/components/ThemeSwitcher";
 import { SessionDebug } from "@/components/SessionDebug";
 import { getBrandForSlug, isValidCompanySlug } from "@/lib/utils";
@@ -25,9 +26,7 @@ export default async function TenantLayout({ children, params }: { children: Rea
 		<TenantProvider companyParam={company.company_login_id}>
 			<div className="min-h-screen">
 				<header className="flex items-center justify-between border-b p-4" style={{ borderColor: brand.primaryColor }}>
-					<Link href={`/t/${company.company_login_id}`} className="text-xl font-bold" style={{ color: brand.primaryColor }}>
-						{brand.logoText}
-					</Link>
+					<TenantBrand slug={company.company_login_id} label={brand.logoText} className="text-xl font-bold inline-flex items-center gap-2" style={{ color: brand.primaryColor }} />
 					<div className="flex items-center gap-3">
 						<ThemeSwitcher />
 						<LogoutButton />
